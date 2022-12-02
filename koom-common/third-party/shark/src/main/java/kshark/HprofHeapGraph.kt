@@ -400,7 +400,9 @@ class HprofHeapGraph internal constructor(
       proguardMapping: ProguardMapping? = null,
       indexedGcRootTypes: Set<HprofRecordTag> = HprofIndex.defaultIndexedGcRootTags()
     ): CloseableHeapGraph {
+      //生成hprof文件头，包括了时间，版本信息等
       val header = openStreamingSource().use { HprofHeader.parseHeaderOf(it) }
+      //生成hprof文件索引
       val index = HprofIndex.indexRecordsOf(this, header, proguardMapping, indexedGcRootTypes)
       return index.openHeapGraph()
     }

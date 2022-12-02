@@ -191,6 +191,7 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
         OOMFileManager.init(rootPath)
 
         kotlin.runCatching {
+            //核心步骤，解析hprof文件生成HprofHeapGraph,这个类可以方便查找对象等信息
             buildIndex(hprofFile)
         }.onFailure {
             it.printStackTrace()
@@ -199,9 +200,11 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
             return
         }
 
+        //生成json
         buildJson(intent)
 
         kotlin.runCatching {
+            //筛选大小超过阈值的对象，疑似泄漏的Activity，Fragment
             filterLeakingObjects()
         }.onFailure {
             MonitorLog.i(OOM_ANALYSIS_EXCEPTION_TAG, "find leak objects exception " + it.message, true)
@@ -330,12 +333,12 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
         val nativeAllocationThunkHeapClass = mHeapGraph.findClassByName(NATIVE_ALLOCATION_CLEANER_THUNK_CLASS_NAME)
         val windowClass = mHeapGraph.findClassByName(WINDOW_CLASS_NAME)
 
-        //缓存classHierarchy，用于查找class的所有instance
+        //缓存类层级，便于查找类id对应的继承信息
         val classHierarchyMap = mutableMapOf<Long, Pair<Long, Long>>()
         //记录class objects数量
         val classObjectCounterMap = mutableMapOf<Long, ObjectCounter>()
 
-        //遍历镜像的所有instance
+        //遍历镜像的所有instance(对象实例)
         for (instance in mHeapGraph.instances) {
             if (instance.isPrimitiveWrapper) {
                 continue
@@ -370,6 +373,7 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
 
             //Activity
             if (activityHeapClass?.objectId == superId4) {
+                //获取destory属性的值
                 val destroyField = instance[ACTIVITY_CLASS_NAME, DESTROYED_FIELD_NAME]!!
                 val finishedField = instance[ACTIVITY_CLASS_NAME, FINISHED_FIELD_NAME]!!
                 if (destroyField.value.asBoolean!! || finishedField.value.asBoolean!!) {

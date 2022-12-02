@@ -31,6 +31,7 @@ class HprofIndex private constructor(
       indexedGcRootTags: Set<HprofRecordTag> = defaultIndexedGcRootTags()
     ): HprofIndex {
       val reader = StreamingHprofReader.readerFor(hprofSourceProvider, hprofHeader)
+      //解析hprof文件
       val index = HprofInMemoryIndex.indexHprof(
         reader = reader,
         hprofHeader = hprofHeader,
