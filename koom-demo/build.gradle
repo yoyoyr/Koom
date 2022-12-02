@@ -20,6 +20,15 @@ android {
     }
 
     buildTypes {
+        debug {
+            minifyEnabled true //开启混淆
+            zipAlignEnabled false //字节码对齐
+            ext.enableCrashlytics = false //
+            ext.alwaysUpdateBuildId = false //
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+
+            buildConfigField "String", "BUGGLY_APPID", "\"9538894f9b\""
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
