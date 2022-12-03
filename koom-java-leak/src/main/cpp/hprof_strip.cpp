@@ -540,7 +540,7 @@ namespace kwai {
             return fd;
         }
 
-        //hook open的方法
+        //hook open的方法。记录fd
         int HprofStrip::HookOpenInternal(const char *path_name, int flags, ...) {
             va_list ap;
             va_start(ap, flags);
