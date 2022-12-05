@@ -6,12 +6,21 @@
   tools:context="com.kwai.koom.demo.MainActivity">
 
   <Button
-    android:id="@+id/btn_make_java_leak"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:text="@string/test_java_leak"
-    android:layout_centerInParent="true"
-    android:onClick="onClick"/>
+      android:id="@+id/btn_make_java_leak"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_centerInParent="true"
+      android:onClick="onClick"
+      android:text="@string/test_java_leak" />
+
+  <Button
+      android:id="@+id/btn_leak_more"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_centerInParent="true"
+      android:layout_below="@id/btn_make_java_leak"
+      android:onClick="onClick"
+      android:text="增加内存" />
 
   <TextView
     android:id="@+id/tv_make_java_leak_hint"
@@ -31,7 +40,7 @@
     android:id="@+id/btn_hprof_dump"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:layout_below="@id/btn_make_java_leak"
+    android:layout_below="@id/btn_leak_more"
     android:text="@string/test_hprof_dump"
     android:layout_centerInParent="true"
     android:onClick="onClick"/>

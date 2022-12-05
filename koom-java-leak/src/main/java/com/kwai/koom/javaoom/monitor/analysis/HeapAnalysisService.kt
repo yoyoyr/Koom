@@ -28,6 +28,8 @@ import android.content.Intent
 import android.os.Build
 import android.os.Debug
 import android.os.ResultReceiver
+import android.util.Size
+import androidx.annotation.RequiresApi
 
 import java.io.File
 import java.io.IOException
@@ -37,9 +39,7 @@ import java.util.*
 import kotlin.system.measureTimeMillis
 
 import com.google.gson.Gson
-import com.kwai.koom.base.LoggerUtils
-
-import com.kwai.koom.base.MonitorLog
+import com.kwai.koom.base.*
 
 import com.kwai.koom.javaoom.monitor.OOMFileManager
 import com.kwai.koom.javaoom.monitor.OOMFileManager.createDumpFile
@@ -50,6 +50,7 @@ import com.kwai.koom.javaoom.monitor.utils.SizeUnit.KB
 import com.kwai.koom.javaoom.monitor.tracker.model.SystemInfo.javaHeap
 import com.kwai.koom.javaoom.monitor.tracker.model.SystemInfo.memInfo
 import com.kwai.koom.javaoom.monitor.tracker.model.SystemInfo.procStatus
+import com.kwai.koom.javaoom.monitor.utils.SizeUnit
 
 import kshark.AndroidReferenceMatchers
 import kshark.HeapAnalyzer
@@ -89,7 +90,8 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
 
         //NativeAllocationRegistry
         private const val NATIVE_ALLOCATION_CLASS_NAME = "libcore.util.NativeAllocationRegistry"
-        private const val NATIVE_ALLOCATION_CLEANER_THUNK_CLASS_NAME = "libcore.util.NativeAllocationRegistry\$CleanerThunk"
+        private const val NATIVE_ALLOCATION_CLEANER_THUNK_CLASS_NAME =
+            "libcore.util.NativeAllocationRegistry\$CleanerThunk"
 
         private const val FINISHED_FIELD_NAME = "mFinished"
         private const val DESTROYED_FIELD_NAME = "mDestroyed"
@@ -128,8 +130,10 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
             }
         }
 
-        fun startAnalysisService(context: Context, hprofFile: String?, jsonFile: String?,
-                                 extraData: AnalysisExtraData, resultCallBack: AnalysisReceiver.ResultCallBack?) {
+        fun startAnalysisService(
+            context: Context, hprofFile: String?, jsonFile: String?,
+            extraData: AnalysisExtraData, resultCallBack: AnalysisReceiver.ResultCallBack?
+        ) {
             MonitorLog.i(TAG, "startAnalysisService")
 
             val analysisReceiver = AnalysisReceiver().apply {
@@ -159,7 +163,10 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
                 putExtra(Info.MANUFACTURE, Build.MANUFACTURER.toString())
                 putExtra(Info.SDK, Build.VERSION.SDK_INT.toString())
                 putExtra(Info.MODEL, Build.MODEL.toString())
-                putExtra(Info.TIME, SimpleDateFormat("yyyy-MM-dd_HH-mm-ss_SSS", Locale.CHINESE).format(Date()))
+                putExtra(
+                    Info.TIME,
+                    SimpleDateFormat("yyyy-MM-dd_HH-mm-ss_SSS", Locale.CHINESE).format(Date())
+                )
 
                 if (extraData.reason != null) {
                     putExtra(Info.REASON, extraData.reason)
@@ -207,7 +214,11 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
             //筛选大小超过阈值的对象，疑似泄漏的Activity，Fragment
             filterLeakingObjects()
         }.onFailure {
-            MonitorLog.i(OOM_ANALYSIS_EXCEPTION_TAG, "find leak objects exception " + it.message, true)
+            MonitorLog.i(
+                OOM_ANALYSIS_EXCEPTION_TAG,
+                "find leak objects exception " + it.message,
+                true
+            )
             resultReceiver?.send(AnalysisReceiver.RESULT_CODE_FAIL, null)
             return
         }
@@ -228,10 +239,17 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
         System.exit(0);
     }
 
+    @RequiresApi(Build.VERSION_CODES.M)
     private fun buildIndex(hprofFile: String?) {
         if (hprofFile.isNullOrEmpty()) return
 
         MonitorLog.i(TAG, "start analyze")
+
+        MonitorLog.i(
+            TAG,
+            "freeIn ${KB.toMB(getMemoryInfo().freeInKb)}  java  ${BYTE.toMB(getJavaHeap().free)}" +
+                    "  GC time ${Debug.getRuntimeStat("art.gc.gc-count")}"
+        )
 
         SharkLog.logger = object : SharkLog.Logger {
             override fun d(message: String) {
@@ -239,24 +257,37 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
             }
 
             override fun d(
-                    throwable: Throwable,
-                    message: String
+                throwable: Throwable,
+                message: String
             ) {
                 println(message)
                 throwable.printStackTrace()
             }
         }
 
+        for (i in 0..60) {
+            MonitorLog.i(TAG, "sleep...")
+            Thread.sleep(2000)
+        }
         measureTimeMillis {
-            mHeapGraph = File(hprofFile).openHeapGraph(null,
-                    setOf(HprofRecordTag.ROOT_JNI_GLOBAL,
-                            HprofRecordTag.ROOT_JNI_LOCAL,
-                            HprofRecordTag.ROOT_NATIVE_STACK,
-                            HprofRecordTag.ROOT_STICKY_CLASS,
-                            HprofRecordTag.ROOT_THREAD_BLOCK,
-                            HprofRecordTag.ROOT_THREAD_OBJECT));
+            mHeapGraph = File(hprofFile).openHeapGraph(
+                null,
+                setOf(
+                    HprofRecordTag.ROOT_JNI_GLOBAL,
+                    HprofRecordTag.ROOT_JNI_LOCAL,
+                    HprofRecordTag.ROOT_NATIVE_STACK,
+                    HprofRecordTag.ROOT_STICKY_CLASS,
+                    HprofRecordTag.ROOT_THREAD_BLOCK,
+                    HprofRecordTag.ROOT_THREAD_OBJECT
+                )
+            );
         }.also {
-            MonitorLog.i(TAG, "build index cost time: $it")
+            MonitorLog.i(
+                TAG, "is main process ${isMainProcess()}. build index cost time: $it ." +
+                        "freeIn ${KB.toMB(getMemoryInfo().freeInKb)}  java  ${BYTE.toMB(getJavaHeap().free)}" +
+                        "  instanceCount " + mHeapGraph.instanceCount +
+                        "  GC time ${Debug.getRuntimeStat("art.gc.gc-count")}"
+            )
         }
     }
 
@@ -284,8 +315,10 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
 
             dumpReason = intent?.getStringExtra(Info.REASON)
 
-            MonitorLog.i(TAG, "handle Intent, fdCount:${fdCount} pss:${pss} rss:${rss} vss:${vss} " +
-                    "threadCount:${threadCount}")
+            MonitorLog.i(
+                TAG, "handle Intent, fdCount:${fdCount} pss:${pss} rss:${rss} vss:${vss} " +
+                        "threadCount:${threadCount}"
+            )
 
             fdList = createDumpFile(fdDumpDir).takeIf { it.exists() }?.readLines()
             threadList = createDumpFile(threadDumpDir).takeIf { it.exists() }?.readLines()
@@ -326,11 +359,12 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
 
         val activityHeapClass = mHeapGraph.findClassByName(ACTIVITY_CLASS_NAME)
         val fragmentHeapClass = mHeapGraph.findClassByName(ANDROIDX_FRAGMENT_CLASS_NAME)
-                ?: mHeapGraph.findClassByName(NATIVE_FRAGMENT_CLASS_NAME)
-                ?: mHeapGraph.findClassByName(SUPPORT_FRAGMENT_CLASS_NAME)
+            ?: mHeapGraph.findClassByName(NATIVE_FRAGMENT_CLASS_NAME)
+            ?: mHeapGraph.findClassByName(SUPPORT_FRAGMENT_CLASS_NAME)
         val bitmapHeapClass = mHeapGraph.findClassByName(BITMAP_CLASS_NAME)
         val nativeAllocationHeapClass = mHeapGraph.findClassByName(NATIVE_ALLOCATION_CLASS_NAME)
-        val nativeAllocationThunkHeapClass = mHeapGraph.findClassByName(NATIVE_ALLOCATION_CLEANER_THUNK_CLASS_NAME)
+        val nativeAllocationThunkHeapClass =
+            mHeapGraph.findClassByName(NATIVE_ALLOCATION_CLEANER_THUNK_CLASS_NAME)
         val windowClass = mHeapGraph.findClassByName(WINDOW_CLASS_NAME)
 
         //缓存类层级，便于查找类id对应的继承信息
@@ -364,9 +398,9 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
                 val classHierarchyList = instance.instanceClass.classHierarchy.toList()
 
                 val first = classHierarchyList.getOrNull(classHierarchyList.size - 2)?.objectId
-                        ?: 0L
+                    ?: 0L
                 val second = classHierarchyList.getOrNull(classHierarchyList.size - 5)?.objectId
-                        ?: 0L
+                    ?: 0L
 
                 Pair(first, second).also { classHierarchyMap[instanceClassId] = it }
             }
@@ -377,16 +411,21 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
                 val destroyField = instance[ACTIVITY_CLASS_NAME, DESTROYED_FIELD_NAME]!!
                 val finishedField = instance[ACTIVITY_CLASS_NAME, FINISHED_FIELD_NAME]!!
                 if (destroyField.value.asBoolean!! || finishedField.value.asBoolean!!) {
-                    val objectCounter = updateClassObjectCounterMap(classObjectCounterMap, instanceClassId, true)
-                    MonitorLog.i(TAG, "activity name : " + instance.instanceClassName
-                            + " mDestroyed:" + destroyField.value.asBoolean
-                            + " mFinished:" + finishedField.value.asBoolean
-                            + " objectId:" + (instance.objectId and 0xffffffffL))
+                    val objectCounter =
+                        updateClassObjectCounterMap(classObjectCounterMap, instanceClassId, true)
+                    MonitorLog.i(
+                        TAG, "activity name : " + instance.instanceClassName
+                                + " mDestroyed:" + destroyField.value.asBoolean
+                                + " mFinished:" + finishedField.value.asBoolean
+                                + " objectId:" + (instance.objectId and 0xffffffffL)
+                    )
                     if (objectCounter.leakCnt <= SAME_CLASS_LEAK_OBJECT_PATH_THRESHOLD) {
                         mLeakingObjectIds.add(instance.objectId)
                         mLeakReasonTable[instance.objectId] = "Activity Leak"
-                        MonitorLog.i(OOM_ANALYSIS_TAG,
-                                instance.instanceClassName + " objectId:" + instance.objectId)
+                        MonitorLog.i(
+                            OOM_ANALYSIS_TAG,
+                            instance.instanceClassName + " objectId:" + instance.objectId
+                        )
                     }
                 }
                 continue
@@ -399,13 +438,19 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
                     val mCalledField = instance[fragmentHeapClass.name, FRAGMENT_MCALLED_FIELD_NAME]
                     //mCalled为true且fragment manager为空时认为fragment已经destroy
                     val isLeak = mCalledField != null && mCalledField.value.asBoolean!!
-                    val objectCounter = updateClassObjectCounterMap(classObjectCounterMap, instanceClassId, isLeak)
-                    MonitorLog.i(TAG, "fragment name:" + instance.instanceClassName + " isLeak:" + isLeak)
+                    val objectCounter =
+                        updateClassObjectCounterMap(classObjectCounterMap, instanceClassId, isLeak)
+                    MonitorLog.i(
+                        TAG,
+                        "fragment name:" + instance.instanceClassName + " isLeak:" + isLeak
+                    )
                     if (objectCounter.leakCnt <= SAME_CLASS_LEAK_OBJECT_PATH_THRESHOLD && isLeak) {
                         mLeakingObjectIds.add(instance.objectId)
                         mLeakReasonTable[instance.objectId] = "Fragment Leak"
-                        MonitorLog.i(OOM_ANALYSIS_TAG,
-                                instance.instanceClassName + " objectId:" + instance.objectId)
+                        MonitorLog.i(
+                            OOM_ANALYSIS_TAG,
+                            instance.instanceClassName + " objectId:" + instance.objectId
+                        )
                     }
                 }
                 continue
@@ -418,14 +463,20 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
                 val width = fieldWidth!!.value.asInt!!
                 val height = fieldHeight!!.value.asInt!!
                 if (width * height >= DEFAULT_BIG_BITMAP) {
-                    val objectCounter = updateClassObjectCounterMap(classObjectCounterMap, instanceClassId, true)
-                    MonitorLog.e(TAG, "suspect leak! bitmap name: ${instance.instanceClassName}" +
-                            " width: ${width} height:${height}")
+                    val objectCounter =
+                        updateClassObjectCounterMap(classObjectCounterMap, instanceClassId, true)
+                    MonitorLog.e(
+                        TAG, "suspect leak! bitmap name: ${instance.instanceClassName}" +
+                                " width: ${width} height:${height}"
+                    )
                     if (objectCounter.leakCnt <= SAME_CLASS_LEAK_OBJECT_PATH_THRESHOLD) {
                         mLeakingObjectIds.add(instance.objectId)
-                        mLeakReasonTable[instance.objectId] = "Bitmap Size Over Threshold, ${width}x${height}"
-                        MonitorLog.i(OOM_ANALYSIS_TAG,
-                                instance.instanceClassName + " objectId:" + instance.objectId)
+                        mLeakReasonTable[instance.objectId] =
+                            "Bitmap Size Over Threshold, ${width}x${height}"
+                        MonitorLog.i(
+                            OOM_ANALYSIS_TAG,
+                            instance.instanceClassName + " objectId:" + instance.objectId
+                        )
 
                         //加入大对象泄露json
                         val leakObject = HeapReport.LeakObject().apply {
@@ -442,8 +493,9 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
 
             //nativeallocation/NativeAllocationThunk/window
             if (nativeAllocationHeapClass?.objectId == superId1
-                    || nativeAllocationThunkHeapClass?.objectId == superId1 // java层对象GC时，出发Native层对象GC
-                    || windowClass?.objectId == superId1) {
+                || nativeAllocationThunkHeapClass?.objectId == superId1 // java层对象GC时，出发Native层对象GC
+                || windowClass?.objectId == superId1
+            ) {
                 updateClassObjectCounterMap(classObjectCounterMap, instanceClassId, false)
             }
         }
@@ -456,7 +508,10 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
                 className = heapClass?.name
                 instanceCount = objectCounter.allCnt.toString()
 
-                MonitorLog.i(OOM_ANALYSIS_TAG, "leakClass.className: $className leakClass.objectCount: $instanceCount")
+                MonitorLog.i(
+                    OOM_ANALYSIS_TAG,
+                    "leakClass.className: $className leakClass.objectCount: $instanceCount"
+                )
             }
 
             mLeakModel.classInfos.add(leakClass)
@@ -470,14 +525,17 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
             if (arraySize >= DEFAULT_BIG_PRIMITIVE_ARRAY) {
                 val arrayName = primitiveArray.arrayClassName
                 val typeName = primitiveArray.primitiveType.toString()
-                MonitorLog.e(OOM_ANALYSIS_TAG,
-                        "uspect leak! primitive arrayName:" + arrayName
-                                + " size:" + arraySize + " typeName:" + typeName
-                                + ", objectId:" + (primitiveArray.objectId and 0xffffffffL)
-                                + ", toString:" + primitiveArray.toString())
+                MonitorLog.e(
+                    OOM_ANALYSIS_TAG,
+                    "uspect leak! primitive arrayName:" + arrayName
+                            + " size:" + arraySize + " typeName:" + typeName
+                            + ", objectId:" + (primitiveArray.objectId and 0xffffffffL)
+                            + ", toString:" + primitiveArray.toString()
+                )
 
                 mLeakingObjectIds.add(primitiveArray.objectId)
-                mLeakReasonTable[primitiveArray.objectId] = "Primitive Array Size Over Threshold, ${arraySize}"
+                mLeakReasonTable[primitiveArray.objectId] =
+                    "Primitive Array Size Over Threshold, ${arraySize}"
                 val leakObject = HeapReport.LeakObject().apply {
                     className = arrayName
                     size = arraySize.toString()
@@ -494,8 +552,10 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
             val arraySize = objectArray.recordSize
             if (arraySize >= DEFAULT_BIG_OBJECT_ARRAY) {
                 val arrayName = objectArray.arrayClassName
-                MonitorLog.i(OOM_ANALYSIS_TAG,
-                        "object arrayName:" + arrayName + " objectId:" + objectArray.objectId)
+                MonitorLog.i(
+                    OOM_ANALYSIS_TAG,
+                    "object arrayName:" + arrayName + " objectId:" + objectArray.objectId
+                )
                 mLeakingObjectIds.add(objectArray.objectId)
                 val leakObject = HeapReport.LeakObject().apply {
                     className = arrayName
@@ -508,58 +568,73 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
 
         val endTime = System.currentTimeMillis()
 
-        mLeakModel.runningInfo?.filterInstanceTime = ((endTime - startTime).toFloat() / 1000).toString()
+        mLeakModel.runningInfo?.filterInstanceTime =
+            ((endTime - startTime).toFloat() / 1000).toString()
 
-        MonitorLog.i(OOM_ANALYSIS_TAG, "filterLeakingObjects time:" + 1.0f * (endTime - startTime) / 1000)
+        MonitorLog.i(
+            OOM_ANALYSIS_TAG,
+            "filterLeakingObjects time:" + 1.0f * (endTime - startTime) / 1000
+        )
     }
 
     private fun findPathsToGcRoot() {
         val startTime = System.currentTimeMillis()
 
         val heapAnalyzer = HeapAnalyzer(
-                OnAnalysisProgressListener { step: OnAnalysisProgressListener.Step ->
-                    MonitorLog.i(TAG, "step:" + step.name + ", leaking obj size:" + mLeakingObjectIds.size)
-                }
+            OnAnalysisProgressListener { step: OnAnalysisProgressListener.Step ->
+                MonitorLog.i(
+                    TAG,
+                    "step:" + step.name + ", leaking obj size:" + mLeakingObjectIds.size
+                )
+            }
         )
 
-        val findLeakInput = FindLeakInput(mHeapGraph, AndroidReferenceMatchers.appDefaults,
-                false, mutableListOf())
+        val findLeakInput = FindLeakInput(
+            mHeapGraph, AndroidReferenceMatchers.appDefaults,
+            false, mutableListOf()
+        )
 
         val (applicationLeaks, libraryLeaks) = with(heapAnalyzer) {
             findLeakInput.findLeaks(mLeakingObjectIds)
         }
 
-        MonitorLog.i(OOM_ANALYSIS_TAG,
-                "---------------------------Application Leak---------------------------------------")
+        MonitorLog.i(
+            OOM_ANALYSIS_TAG,
+            "---------------------------Application Leak---------------------------------------"
+        )
         //填充application leak
         MonitorLog.i(OOM_ANALYSIS_TAG, "ApplicationLeak size:" + applicationLeaks.size)
         for (applicationLeak in applicationLeaks) {
-            MonitorLog.i(OOM_ANALYSIS_TAG, "shortDescription:" + applicationLeak.shortDescription
-                    + ", signature:" + applicationLeak.signature
-                    + " same leak size:" + applicationLeak.leakTraces.size
+            MonitorLog.i(
+                OOM_ANALYSIS_TAG, "shortDescription:" + applicationLeak.shortDescription
+                        + ", signature:" + applicationLeak.signature
+                        + " same leak size:" + applicationLeak.leakTraces.size
             )
 
             val (gcRootType, referencePath, leakTraceObject) = applicationLeak.leakTraces[0]
 
             val gcRoot = gcRootType.description
             val labels = leakTraceObject.labels.toTypedArray()
-            leakTraceObject.leakingStatusReason = mLeakReasonTable[leakTraceObject.objectId].toString()
+            leakTraceObject.leakingStatusReason =
+                mLeakReasonTable[leakTraceObject.objectId].toString()
 
-            MonitorLog.i(OOM_ANALYSIS_TAG, "GC Root:" + gcRoot
-                    + ", leakObjClazz:" + leakTraceObject.className
-                    + ", leakObjType:" + leakTraceObject.typeName
-                    + ", labels:" + labels.contentToString()
-                    + ", leaking reason:" + leakTraceObject.leakingStatusReason
-                    + ", leaking obj:" + (leakTraceObject.objectId and 0xffffffffL))
+            MonitorLog.i(
+                OOM_ANALYSIS_TAG, "GC Root:" + gcRoot
+                        + ", leakObjClazz:" + leakTraceObject.className
+                        + ", leakObjType:" + leakTraceObject.typeName
+                        + ", labels:" + labels.contentToString()
+                        + ", leaking reason:" + leakTraceObject.leakingStatusReason
+                        + ", leaking obj:" + (leakTraceObject.objectId and 0xffffffffL)
+            )
 
             val leakTraceChainModel = HeapReport.GCPath()
-                    .apply {
-                        this.instanceCount = applicationLeak.leakTraces.size
-                        this.leakReason = leakTraceObject.leakingStatusReason
-                        this.gcRoot = gcRoot
-                        this.signature = applicationLeak.signature
-                    }
-                    .also { mLeakModel.gcPaths.add(it) }
+                .apply {
+                    this.instanceCount = applicationLeak.leakTraces.size
+                    this.leakReason = leakTraceObject.leakingStatusReason
+                    this.gcRoot = gcRoot
+                    this.signature = applicationLeak.signature
+                }
+                .also { mLeakModel.gcPaths.add(it) }
 
             // 添加索引到的trace path
             for (reference in referencePath) {
@@ -571,13 +646,15 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
                 val declaredClassName = reference.owningClassName
                 val objectId = reference.originObject.objectId
 
-                MonitorLog.i(OOM_ANALYSIS_TAG, "clazz:" + clazz +
-                        ", referenceName:" + referenceName
-                        + ", referenceDisplayName:" + referenceDisplayName
-                        + ", referenceGenericName:" + referenceGenericName
-                        + ", referenceType:" + referenceType
-                        + ", objectId:" + objectId
-                        + ", declaredClassName:" + declaredClassName)
+                MonitorLog.i(
+                    OOM_ANALYSIS_TAG, "clazz:" + clazz +
+                            ", referenceName:" + referenceName
+                            + ", referenceDisplayName:" + referenceDisplayName
+                            + ", referenceGenericName:" + referenceGenericName
+                            + ", referenceType:" + referenceType
+                            + ", objectId:" + objectId
+                            + ", declaredClassName:" + declaredClassName
+                )
 
                 val leakPathItem = HeapReport.GCPath.PathItem().apply {
                     this.reference = if (referenceDisplayName.startsWith("["))  //数组类型[]
@@ -598,24 +675,35 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
                 referenceType = leakTraceObject.typeName
             })
         }
-        MonitorLog.i(OOM_ANALYSIS_TAG, "=======================================================================")
-        MonitorLog.i(OOM_ANALYSIS_TAG, "----------------------------Library Leak--------------------------------------");
+        MonitorLog.i(
+            OOM_ANALYSIS_TAG,
+            "======================================================================="
+        )
+        MonitorLog.i(
+            OOM_ANALYSIS_TAG,
+            "----------------------------Library Leak--------------------------------------"
+        );
         //填充library leak
         MonitorLog.i(OOM_ANALYSIS_TAG, "LibraryLeak size:" + libraryLeaks.size)
         for (libraryLeak in libraryLeaks) {
-            MonitorLog.i(OOM_ANALYSIS_TAG, "description:" + libraryLeak.description
-                    + ", shortDescription:" + libraryLeak.shortDescription
-                    + ", pattern:" + libraryLeak.pattern.toString())
+            MonitorLog.i(
+                OOM_ANALYSIS_TAG, "description:" + libraryLeak.description
+                        + ", shortDescription:" + libraryLeak.shortDescription
+                        + ", pattern:" + libraryLeak.pattern.toString()
+            )
 
             val (gcRootType, referencePath, leakTraceObject) = libraryLeak.leakTraces[0]
             val gcRoot = gcRootType.description
             val labels = leakTraceObject.labels.toTypedArray()
-            leakTraceObject.leakingStatusReason = mLeakReasonTable[leakTraceObject.objectId].toString()
+            leakTraceObject.leakingStatusReason =
+                mLeakReasonTable[leakTraceObject.objectId].toString()
 
-            MonitorLog.i(OOM_ANALYSIS_TAG, "GC Root:" + gcRoot
-                    + ", leakClazz:" + leakTraceObject.className
-                    + ", labels:" + labels.contentToString()
-                    + ", leaking reason:" + leakTraceObject.leakingStatusReason)
+            MonitorLog.i(
+                OOM_ANALYSIS_TAG, "GC Root:" + gcRoot
+                        + ", leakClazz:" + leakTraceObject.className
+                        + ", labels:" + labels.contentToString()
+                        + ", leaking reason:" + leakTraceObject.leakingStatusReason
+            )
 
             val leakTraceChainModel = HeapReport.GCPath().apply {
                 this.instanceCount = libraryLeak.leakTraces.size
@@ -635,12 +723,14 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
                 val declaredClassName = reference.owningClassName
                 val objectId = reference.originObject.objectId
 
-                MonitorLog.i(OOM_ANALYSIS_TAG, "clazz:" + clazz +
-                        ", referenceName:" + referenceName
-                        + ", referenceDisplayName:" + referenceDisplayName
-                        + ", referenceGenericName:" + referenceGenericName
-                        + ", referenceType:" + referenceType
-                        + ", declaredClassName:" + declaredClassName)
+                MonitorLog.i(
+                    OOM_ANALYSIS_TAG, "clazz:" + clazz +
+                            ", referenceName:" + referenceName
+                            + ", referenceDisplayName:" + referenceDisplayName
+                            + ", referenceGenericName:" + referenceGenericName
+                            + ", referenceType:" + referenceType
+                            + ", declaredClassName:" + declaredClassName
+                )
 
                 val leakPathItem = HeapReport.GCPath.PathItem().apply {
                     this.reference = if (referenceDisplayName.startsWith("["))
@@ -661,15 +751,20 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
             })
             break
         }
-        MonitorLog.i(OOM_ANALYSIS_TAG,
-                "=======================================================================")
+        MonitorLog.i(
+            OOM_ANALYSIS_TAG,
+            "======================================================================="
+        )
 
         val endTime = System.currentTimeMillis()
 
-        mLeakModel.runningInfo!!.findGCPathTime = ((endTime - startTime).toFloat() / 1000).toString()
+        mLeakModel.runningInfo!!.findGCPathTime =
+            ((endTime - startTime).toFloat() / 1000).toString()
 
-        MonitorLog.i(OOM_ANALYSIS_TAG, "findPathsToGcRoot cost time: "
-                + (endTime - startTime).toFloat() / 1000)
+        MonitorLog.i(
+            OOM_ANALYSIS_TAG, "findPathsToGcRoot cost time: "
+                    + (endTime - startTime).toFloat() / 1000
+        )
     }
 
     private fun fillJsonFile(jsonFile: String?) {
@@ -686,9 +781,9 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
     }
 
     private fun updateClassObjectCounterMap(
-            classObCountMap: MutableMap<Long, ObjectCounter>,
-            instanceClassId: Long,
-            isLeak: Boolean
+        classObCountMap: MutableMap<Long, ObjectCounter>,
+        instanceClassId: Long,
+        isLeak: Boolean
     ): ObjectCounter {
         val objectCounter = classObCountMap[instanceClassId] ?: ObjectCounter().also {
             classObCountMap[instanceClassId] = it

@@ -1,5 +1,9 @@
 package com.kwai.koom.demo.javaleak;
 
+import static com.kwai.koom.base.Monitor_SystemKt.getJavaHeap;
+import static com.kwai.koom.base.Monitor_SystemKt.getMemoryInfo;
+import static com.kwai.koom.base.Monitor_SystemKt.getProcessStatus;
+
 import java.io.File;
 import java.io.IOException;
 
@@ -13,11 +17,13 @@ import android.view.View;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.kwai.koom.base.MonitorLog;
 import com.kwai.koom.demo.MainActivity;
 import com.kwai.koom.demo.R;
 import com.kwai.koom.demo.javaleak.test.LeakMaker;
 import com.kwai.koom.javaoom.hprof.ForkStripHeapDumper;
 import com.kwai.koom.javaoom.monitor.OOMMonitor;
+import com.kwai.koom.javaoom.monitor.utils.SizeUnit;
 
 public class JavaLeakTestActivity extends AppCompatActivity {
 
@@ -48,7 +54,19 @@ public class JavaLeakTestActivity extends AppCompatActivity {
                 /*
                  * Make some leaks for test!
                  */
-                LeakMaker.makeLeak(this);
+//                LeakMaker.makeLeak(this);
+                break;
+            case R.id.btn_leak_more:
+
+//                System.out.println("OMMonitor_HeapAnalysisService   freeIn " + SizeUnit.KB.INSTANCE.toMB(getMemoryInfo().freeInKb)
+//                        + "  java  " + SizeUnit.BYTE.INSTANCE.toMB(getJavaHeap().used)
+//                        + "  vss  " + SizeUnit.KB.INSTANCE.toMB(getProcessStatus().vssKbSize)
+//                );
+                LeakMaker.leak100MB();
+//                System.out.println("OMMonitor_HeapAnalysisService   freeIn " + SizeUnit.KB.INSTANCE.toMB(getMemoryInfo().freeInKb)
+//                        + "  java  " + SizeUnit.BYTE.INSTANCE.toMB(getJavaHeap().used)
+//                        + "  vss  " + SizeUnit.KB.INSTANCE.toMB(getProcessStatus().vssKbSize)
+//                );
                 break;
 
             case R.id.btn_hprof_dump:

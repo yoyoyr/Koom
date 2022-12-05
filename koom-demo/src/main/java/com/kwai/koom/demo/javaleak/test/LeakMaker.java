@@ -19,12 +19,16 @@
 package com.kwai.koom.demo.javaleak.test;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import android.content.Context;
 
 public abstract class LeakMaker<T> {
     List<T> uselessObjectList = new ArrayList<>();
+
+    static List<byte[]> mb50Leaks = new ArrayList<>();
 
     abstract void startLeak(Context context);
 
@@ -34,7 +38,7 @@ public abstract class LeakMaker<T> {
         BitmapLeaker.bitmapLeakMaker = new BitmapLeakMaker();
         leakMakerList.add(new ActivityLeakMaker());
         leakMakerList.add(BitmapLeaker.bitmapLeakMaker);
-        leakMakerList.add(new ByteArrayLeakMaker());
+        leakMakerList.add(new CollectionLeakMaker());
         leakMakerList.add(new FragmentLeakMaker());
         leakMakerList.add(new StringLeakMaker());
         leakMakerList.add(new InnerNoNameLeakMaker());
@@ -47,17 +51,25 @@ public abstract class LeakMaker<T> {
         new InnerNoNameLeakMaker().startLeak(context);
         new InnerStaticLeakMaker().startLeak(context);
 
-        for (int i = 0; i < 10; i++) {
-            new Thread(() -> {
-                while (true) {
-                    try {
-                        Thread.sleep(500);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
+//        for (int i = 0; i < 10; i++) {
+//            new Thread(() -> {
+//                while (true) {
+//                    try {
+//                        Thread.sleep(500);
+//                    } catch (InterruptedException e) {
+//                        e.printStackTrace();
+//                    }
+//                }
+//
+//            }, "leakThread").start();
+//        }
+    }
 
-            }, "leakThread").start();
+    public static void leak100MB() {
+        for (int i = 0; i < 1024 * 1024; i++) {
+            byte[] bytes = new byte[100];
+            mb50Leaks.add(bytes);
         }
+
     }
 }

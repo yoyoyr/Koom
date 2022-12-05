@@ -117,7 +117,7 @@ pid_t HprofDump::SuspendAndFork() {
 
   pid_t pid = fork();
   if (pid == 0) {
-    // Set timeout for child process
+    // Set timeout for child process.60s后还有任务在执行，并不会真的关闭
     alarm(60);
     prctl(PR_SET_NAME, "forked-dump-process");
   }

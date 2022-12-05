@@ -16,7 +16,6 @@ object OOMMonitorInitTask : InitTask {
         val config = OOMMonitorConfig.Builder()
                 .setThreadThreshold(50) //50 only for test! Please use default value!
                 .setFdThreshold(300) // 300 only for test! Please use default value!
-                .setHeapThreshold(0.02f) // 0.9f for test! Please use default value!
                 .setVssSizeThreshold(1_000_000) // 1_000_000 for test! Please use default value!
                 .setMaxOverThresholdCount(1) // 1 for test! Please use default value!
                 .setAnalysisMaxTimesPerVersion(3) // Consider use default value！

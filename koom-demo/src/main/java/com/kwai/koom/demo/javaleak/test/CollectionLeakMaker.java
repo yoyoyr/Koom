@@ -20,7 +20,10 @@ package com.kwai.koom.demo.javaleak.test;
 
 import android.content.Context;
 
-public class ByteArrayLeakMaker extends LeakMaker<ByteArrayLeakMaker.ByteArrayHolder> {
+import java.util.HashMap;
+import java.util.Map;
+
+public class CollectionLeakMaker extends LeakMaker<CollectionLeakMaker.ByteArrayHolder> {
 
   @Override
   public void startLeak(Context context) {
@@ -30,8 +33,20 @@ public class ByteArrayLeakMaker extends LeakMaker<ByteArrayLeakMaker.ByteArrayHo
   public static class ByteArrayHolder {
     private byte[] array;
 
+    private Map<String,String> map = new HashMap<String,String>();
+
     public ByteArrayHolder() {
       array = new byte[512 * 1024];
+      map.put("leak0","leak map");
+      map.put("leak1","leak map");
+      map.put("leak2","leak map");
+      map.put("leak3","leak map");
+      map.put("leak4","leak map");
+      map.put("leak5","leak map");
+      map.put("leak6","leak map");
+      map.put("leak7","leak map");
+      map.put("leak8","leak map");
+      map.put("leak9","leak map");
     }
   }
 
