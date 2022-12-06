@@ -19,6 +19,7 @@
 package com.kwai.koom.javaoom.monitor
 
 import android.os.Build
+import android.os.Environment
 import android.os.SystemClock
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -27,6 +28,7 @@ import com.kwai.koom.base.*
 import com.kwai.koom.base.MonitorManager.getApplication
 import com.kwai.koom.base.loop.LoopMonitor
 import com.kwai.koom.fastdump.ForkJvmHeapDumper
+import com.kwai.koom.javaoom.hprof.ForkStripHeapDumper
 import com.kwai.koom.javaoom.monitor.OOMFileManager.hprofAnalysisDir
 import com.kwai.koom.javaoom.monitor.OOMFileManager.manualDumpDir
 import com.kwai.koom.javaoom.monitor.analysis.AnalysisExtraData
@@ -41,9 +43,8 @@ object OOMMonitor : LoopMonitor<OOMMonitorConfig>(), LifecycleEventObserver {
     private const val TAG = "OOMMonitor"
 
     private val mOOMTrackers = mutableListOf(
-        HeapOOMTracker()
-//        , ThreadOOMTracker(), FdOOMTracker(),
-//            PhysicalMemoryOOMTracker(), FastHugeMemoryOOMTracker()
+        HeapOOMTracker(), ThreadOOMTracker(), FdOOMTracker(),
+        PhysicalMemoryOOMTracker(), FastHugeMemoryOOMTracker()
     )
     private val mTrackReasons = mutableListOf<String>()
 
@@ -308,11 +309,22 @@ object OOMMonitor : LoopMonitor<OOMMonitorConfig>(), LifecycleEventObserver {
                 setReadable(true)
             }
 
+//            val path = Environment.getExternalStorageDirectory().getPath() + "/zkoom/test.hprof"
+            val path = hprofFile.absolutePath
             MonitorLog.i(TAG, "hprof analysis dir:$hprofAnalysisDir")
 
+//            HprofDeobfuscator.deobfuscate(
+//              ProguardMappingReader(proguardMapping).readProguardMapping(),
+//              hprofFile.absolutePath
+//            )
             ForkJvmHeapDumper.getInstance().run {
-                dump(hprofFile.absolutePath)
+                dump(path)
             }
+
+            //经过压缩的
+//            ForkStripHeapDumper.getInstance().run {
+//                dump()
+//            }
 
             MonitorLog.i(TAG, "end hprof dump", true)
             Thread.sleep(1000) // make sure file synced to disk.

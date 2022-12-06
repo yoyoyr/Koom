@@ -66,10 +66,10 @@ public abstract class LeakMaker<T> {
     }
 
     public static void leak100MB() {
-        for (int i = 0; i < 1024 * 1024; i++) {
-            byte[] bytes = new byte[100];
-            mb50Leaks.add(bytes);
-        }
+//        for (int i = 0; i < ; i++) {
+        byte[] bytes = new byte[50 * 1024 * 1024];
+        mb50Leaks.add(bytes);
+//        }
 
     }
 }

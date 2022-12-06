@@ -265,10 +265,6 @@ class HeapAnalysisService : IntentService("HeapAnalysisService") {
             }
         }
 
-        for (i in 0..60) {
-            MonitorLog.i(TAG, "sleep...")
-            Thread.sleep(2000)
-        }
         measureTimeMillis {
             mHeapGraph = File(hprofFile).openHeapGraph(
                 null,
